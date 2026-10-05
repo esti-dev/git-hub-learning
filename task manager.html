@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מנהל משימות - גרסה מעודכנת</title>
+    <style>
+        :root {
+            --primary: #bbdefb;
+            --secondary: #f8bbd0;
+            --bg-color: #fdfcf0;
+            --text-color: #444;
+        }
+
+        * { box-sizing: border-box; }
+        
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            overflow: hidden;
+        }
+
+        body { display: flex; color: var(--text-color); }
+
+        #profile-sidebar {
+            width: 180px; background-color: var(--bg-color);
+            display: flex; flex-direction: column; align-items: center;
+            padding: 40px 10px; flex-shrink: 0;
+        }
+
+        #side-avatar {
+            width: 85px; height: 85px; border-radius: 50%;
+            object-fit: cover; border: 4px solid white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 15px;
+        }
+
+        main { 
+            flex: 1; display: flex; flex-direction: column; 
+            background-color: var(--bg-color); height: 100vh; overflow-y: auto;
+        }
+
+        nav {
+            padding: 20px; display: flex; justify-content: center; gap: 10px;
+            background: rgba(255,255,255,0.15); backdrop-filter: blur(10px);
+            position: sticky; top: 0; z-index: 100;
+        }
+
+        nav span {
+            cursor: pointer; padding: 10px 18px; border-radius: 15px;
+            font-weight: 600; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: 0.3s; position: relative;
+        }
+
+        nav span.active { background: var(--primary); }
+
+        .rem-badge {
+            position: absolute; top: -5px; left: -5px;
+            background: #ff5252; color: white; border-radius: 50%;
+            width: 20px; height: 20px; font-size: 0.7rem;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; border: 2px solid white;
+        }
+
+        .container { padding: 30px; max-width: 900px; margin: 0 auto; width: 100%; }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.4s ease; }
+
+        .task-card {
+            background: white; border-radius: 20px; padding: 20px; margin-bottom: 15px;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.03); border-right: 7px solid var(--secondary);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .task-info h3 { margin: 0; font-size: 1.2rem; }
+        .task-info p { margin: 5px 0; color: #666; font-size: 0.95rem; }
+        .task-info small { color: #aaa; }
+
+        .actions { display: flex; gap: 10px; }
+        .btn-icon {
+            border: none; width: 40px; height: 40px; border-radius: 50%;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; transition: 0.2s;
+        }
+        .btn-complete { background: var(--primary); }
+        .btn-delete { background: #fee2e2; color: #ef4444; }
+
+        .floating-btns { position: fixed; left: 25px; bottom: 25px; display: flex; flex-direction: column; gap: 12px; z-index: 1000; }
+        .float-btn {
+            background: white; width: 55px; height: 55px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15); cursor: pointer; font-size: 1.5rem;
+        }
+
+        #settings-panel {
+            position: fixed; left: -280px; top: 0; width: 250px; height: 100%;
+            background: white; padding: 30px; box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+            transition: 0.4s; z-index: 10000;
+        }
+        #settings-panel.open { left: 0; }
+
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+        .calendar-day { background: white; min-height: 90px; border-radius: 12px; padding: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        input, textarea { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+<div id="settings-panel" onmouseleave="this.classList.remove('open')">
+    <h2>🎨 עיצוב</h2>
+    <input type="color" onchange="updateStyle('--bg-color', this.value)" value="#fdfcf0"> רקע<br><br>
+    <input type="color" onchange="updateStyle('--secondary', this.value)" value="#f8bbd0"> משימות<br><br>
+    <input type="color" onchange="updateStyle('--primary', this.value)" value="#bbdefb"> כפתורים
+</div>
+
+<div class="floating-btns">
+    <div class="float-btn" onclick="toggleMusic()" id="music-btn">🎵</div>
+    <div class="float-btn" onclick="document.getElementById('settings-panel').classList.add('open')">⚙️</div>
+</div>
+
+<aside id="profile-sidebar">
+    <img id="side-avatar" src="https://via.placeholder.com/85" alt="פרופיל">
+    <div id="side-name" style="font-weight: bold; margin-top:10px;">אורח</div>
+</aside>
+
+<main>
+    <nav>
+        <span onclick="showPage('todo')" id="tab-todo" class="active">משימות 📝</span>
+        <span onclick="showPage('reminders')" id="tab-reminders">
+            תזכורות 🔔
+            <div id="badge-ui" class="rem-badge" style="display:none">0</div>
+        </span>
+        <span onclick="showPage('done')" id="tab-done">בוצעו ✅</span>
+        <span onclick="showPage('calendar')" id="tab-calendar">לוח שנה 📅</span>
+        <span onclick="showPage('add')" id="tab-add">➕ חדש</span>
+        <span onclick="showPage('profile')" id="tab-profile">👤 פרופיל</span>
+    </nav>
+
+    <div class="container">
+        <div id="page-todo" class="page active"><div id="list-todo"></div></div>
+        <div id="page-reminders" class="page"><h2>תזכורות להיום ולמחר 🔔</h2><div id="list-reminders"></div></div>
+        <div id="page-done" class="page"><h2>בוצעו ✅</h2><div id="list-done"></div></div>
+        
+        <div id="page-add" class="page">
+            <div style="background: white; padding: 30px; border-radius: 20px;">
+                <h2>משימה חדשה ✨</h2>
+                <input type="text" id="t-title" placeholder="כותרת המשימה">
+                <textarea id="t-desc" rows="3" placeholder="פירוט המשימה (גוף המשימה)"></textarea>
+                <input type="date" id="t-date">
+                <button onclick="addTask()" style="width:100%; padding:15px; border:none; border-radius:12px; background:var(--primary); font-weight:bold; cursor:pointer;">שמור</button>
+            </div>
+        </div>
+
+        <div id="page-profile" class="page">
+            <div style="background: white; padding: 30px; border-radius: 20px;">
+                <h2>פרופיל 👤</h2>
+                <input type="text" id="edit-name" placeholder="שם">
+                <input type="file" accept="image/*" onchange="handleImg(this)">
+                <button onclick="saveProfile()" style="width:100%; padding:15px; border:none; border-radius:12px; background:var(--secondary); font-weight:bold; cursor:pointer;">עדכן</button>
+            </div>
+        </div>
+
+        <div id="page-calendar" class="page">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <button onclick="changeMonth(-1)">◀</button>
+                <h2 id="month-name"></h2>
+                <button onclick="changeMonth(1)">▶</button>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+        </div>
+    </div>
+</main>
+
+<audio id="bg-music" loop crossorigin="anonymous">
+    <source src="https://www.mfiles.co.uk/mp3-downloads/beethoven-symphony-9-4-ode-to-joy-piano.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    let tasks = JSON.parse(localStorage.getItem('tasks_v21')) || [];
+    let curMonth = new Date();
+    let playing = false;
+
+    function updateStyle(p, v) {
+        document.documentElement.style.setProperty(p, v);
+    }
+
+    function showPage(id) {
+        document.querySelectorAll('.page, nav span').forEach(el => el.classList.remove('active'));
+        document.getElementById('page-'+id).classList.add('active');
+        document.getElementById('tab-'+id).classList.add('active');
+        if(id === 'calendar') renderCalendar();
+        renderTasks();
+    }
+
+    function addTask() {
+        const title = document.getElementById('t-title').value, 
+              desc = document.getElementById('t-desc').value, 
+              date = document.getElementById('t-date').value;
+        if(!title || !date) return alert("נא למלא כותרת ותאריך");
+        tasks.push({id: Date.now(), title, desc, date, done: false});
+        localStorage.setItem('tasks_v21', JSON.stringify(tasks));
+        document.getElementById('t-title').value = '';
+        document.getElementById('t-desc').value = '';
+        showPage('todo');
+    }
+
+    function deleteTask(id) {
+        tasks = tasks.filter(t => t.id !== id);
+        localStorage.setItem('tasks_v21', JSON.stringify(tasks));
+        renderTasks();
+        if(document.getElementById('page-calendar').classList.contains('active')) renderCalendar();
+    }
+
+    function renderTasks() {
+        const todo = document.getElementById('list-todo'), done = document.getElementById('list-done'), rem = document.getElementById('list-reminders');
+        todo.innerHTML = ''; done.innerHTML = ''; rem.innerHTML = '';
+        
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        
+        const tom = new Date(); 
+        tom.setDate(tom.getDate() + 1);
+        const tomStr = tom.toISOString().split('T')[0];
+        
+        let remCount = 0;
+
+        tasks.forEach(t => {
+            const card = document.createElement('div');
+            card.className = 'task-card';
+            card.innerHTML = `
+                <div class="task-info">
+                    <h3>${t.title}</h3>
+                    <p>${t.desc || ''}</p>
+                    <small>תאריך יעד: ${t.date}</small>
+                </div>
+                <div class="actions">
+                    ${!t.done ? `<button class="btn-icon btn-complete" onclick="complete(${t.id})">✓</button>` : ''}
+                    <button class="btn-icon btn-delete" onclick="deleteTask(${t.id})">🗑️</button>
+                </div>`;
+            
+            if(t.done) {
+                done.appendChild(card);
+            } else {
+                todo.appendChild(card.cloneNode(true));
+                if(t.date === todayStr || t.date === tomStr) {
+                    rem.appendChild(card);
+                    remCount++;
+                }
+            }
+        });
+
+        const badge = document.getElementById('badge-ui');
+        if(remCount > 0) {
+            badge.innerText = remCount;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    function complete(id) {
+        tasks.find(t => t.id === id).done = true;
+        localStorage.setItem('tasks_v21', JSON.stringify(tasks));
+        renderTasks();
+    }
+
+    function renderCalendar() {
+        const grid = document.getElementById('calendar-grid'); grid.innerHTML = '';
+        const y = curMonth.getFullYear(), m = curMonth.getMonth();
+        document.getElementById('month-name').innerText = curMonth.toLocaleString('he-IL', {month:'long', year:'numeric'});
+        const first = new Date(y, m, 1).getDay(), days = new Date(y, m+1, 0).getDate();
+        for(let i=0; i<first; i++) grid.innerHTML += '<div></div>';
+        for(let d=1; d<=days; d++) {
+            const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const dTasks = tasks.filter(t => t.date === dStr && !t.done);
+            const div = document.createElement('div');
+            div.className = 'calendar-day';
+            div.innerHTML = `<strong>${d}</strong>` + dTasks.map(t => `<div style="font-size:0.5rem; background:var(--primary); margin-top:3px; padding:2px; border-radius:4px;">${t.title}</div>`).join('');
+            grid.appendChild(div);
+        }
+    }
+
+    function changeMonth(d) { curMonth.setMonth(curMonth.getMonth() + d); renderCalendar(); }
+
+    function toggleMusic() {
+        const audio = document.getElementById('bg-music');
+        const btn = document.getElementById('music-btn');
+        if (!playing) {
+            audio.play().then(() => {
+                playing = true;
+                btn.style.background = 'var(--primary)';
+            }).catch(e => {
+                alert("אנא לחצי שוב על האייקון כדי לאשר לדפדפן להשמיע מוזיקה");
+            });
+        } else {
+            audio.pause();
+            playing = false;
+            btn.style.background = 'white';
+        }
+    }
+
+    function handleImg(input) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('side-avatar').src = e.target.result;
+            localStorage.setItem('p_img_v21', e.target.result);
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+
+    function saveProfile() {
+        const name = document.getElementById('edit-name').value;
+        localStorage.setItem('p_name_v21', name);
+        document.getElementById('side-name').innerText = name;
+        showPage('todo');
+    }
+
+    document.getElementById('side-name').innerText = localStorage.getItem('p_name_v21') || "אורח";
+    if(localStorage.getItem('p_img_v21')) document.getElementById('side-avatar').src = localStorage.getItem('p_img_v21');
+    renderTasks();
+</script>
+</body>
+</html>
